@@ -1,23 +1,36 @@
-private void btnAdd_Click(object sender, EventArgs e)
-{
-    try
-    {
-        using (SqlConnection conn = new SqlConnection(connectionString))
-        {
-            string query = "INSERT INTO Products (ProductName, ProductNameJP, Quantity, Price) VALUES (@Name, @NameJP, @Qty, @Price)";
-            SqlCommand cmd = new SqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@Name", txtProductName.Text);
-            cmd.Parameters.AddWithValue("@NameJP", txtProductNameJP.Text);
-            cmd.Parameters.AddWithValue("@Qty", int.Parse(txtQuantity.Text));
-            cmd.Parameters.AddWithValue("@Price", decimal.Parse(txtPrice.Text));
+using System;
+using System.Data;
+using System.Windows.Forms;
 
-            conn.Open();
-            cmd.ExecuteNonQuery();
-        }
-        LoadProducts();
-    }
-    catch (Exception ex)
+namespace BilingualInventoryERP
+{
+    public partial class Form1 : Form
     {
-        MessageBox.Show($"Error adding product: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        private readonly DatabaseManager dbManager;
+        private readonly User currentUser;
+        private bool isEnglish = true;
+
+        public Form1(DatabaseManager dbManager, User user)
+        {
+            InitializeComponent();
+            this.dbManager = dbManager;
+            this.currentUser = user;
+            SetupControls();
+            LoadProducts();
+            SetLanguage();
+            UpdateUIBasedOnUserRole();
+        }
+
+        private void UpdateUIBasedOnUserRole()
+        {
+            if (!currentUser.IsAdmin)
+            {
+                btnAdd.Enabled = false;
+                btnUpdate.Enabled = false;
+                btnDelete.Enabled = false;
+            }
+        }
+
+        // ... (rest of the Form1 code remains the same)
     }
 }
