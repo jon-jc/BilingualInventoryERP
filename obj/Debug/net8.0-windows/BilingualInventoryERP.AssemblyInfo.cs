@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BilingualInventoryERP")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6414a27fbb8765c36932437fcb7c7f3e3f372fb2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+594bd07587d424f3e2e9b26e211d61c8b3d62199")]
 [assembly: System.Reflection.AssemblyProductAttribute("BilingualInventoryERP")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BilingualInventoryERP")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
