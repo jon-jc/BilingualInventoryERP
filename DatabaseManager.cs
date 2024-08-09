@@ -1,128 +1,97 @@
 using System;
 using System.Data;
-using System.Data.SqlClient;
-using System.Security.Cryptography;
-using System.Text;
+using System.Data.SQLite;
+using System.IO;
 
 namespace BilingualInventoryERP
 {
     public class DatabaseManager
     {
-        private readonly string connectionString;
+        private string dbPath = "inventory.db";
+        private string connectionString;
 
-        public DatabaseManager(string connectionString)
+        public DatabaseManager()
         {
-            this.connectionString = connectionString;
+            connectionString = $"Data Source={dbPath};Version=3;";
+            InitializeDatabase();
+        }
+
+        private void InitializeDatabase()
+        {
+            if (!File.Exists(dbPath))
+            {
+                SQLiteConnection.CreateFile(dbPath);
+                using (var conn = new SQLiteConnection(connectionString))
+                {
+                    conn.Open();
+                    string sql = @"
+                        CREATE TABLE Users (
+                            UserId INTEGER PRIMARY KEY AUTOINCREMENT,
+                            Username TEXT NOT NULL UNIQUE,
+                            PasswordHash TEXT NOT NULL,
+                            IsAdmin INTEGER NOT NULL
+                        );
+                        CREATE TABLE Products (
+                            ProductId INTEGER PRIMARY KEY AUTOINCREMENT,
+                            ProductName TEXT NOT NULL,
+                            ProductNameJP TEXT NOT NULL,
+                            Quantity INTEGER NOT NULL,
+                            Price REAL NOT NULL
+                        );
+                        INSERT INTO Users (Username, PasswordHash, IsAdmin) VALUES ('admin', 'admin123', 1);";
+                    using (var cmd = new SQLiteCommand(sql, conn))
+                    {
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
         }
 
         public DataTable GetAllProducts()
         {
             DataTable dt = new DataTable();
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            using (var conn = new SQLiteConnection(connectionString))
             {
-                string query = "SELECT * FROM Products";
-                SqlDataAdapter adapter = new SqlDataAdapter(query, conn);
-                adapter.Fill(dt);
+                conn.Open();
+                string sql = "SELECT * FROM Products";
+                using (var adapter = new SQLiteDataAdapter(sql, conn))
+                {
+                    adapter.Fill(dt);
+                }
             }
             return dt;
         }
 
         public void AddProduct(string name, string nameJP, int quantity, decimal price)
         {
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            using (var conn = new SQLiteConnection(connectionString))
             {
-                string query = "INSERT INTO Products (ProductName, ProductNameJP, Quantity, Price) VALUES (@Name, @NameJP, @Qty, @Price)";
-                SqlCommand cmd = new SqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@Name", name);
-                cmd.Parameters.AddWithValue("@NameJP", nameJP);
-                cmd.Parameters.AddWithValue("@Qty", quantity);
-                cmd.Parameters.AddWithValue("@Price", price);
-
                 conn.Open();
-                cmd.ExecuteNonQuery();
-            }
-        }
-
-        public void UpdateProduct(int id, string name, string nameJP, int quantity, decimal price)
-        {
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                string query = "UPDATE Products SET ProductName=@Name, ProductNameJP=@NameJP, Quantity=@Qty, Price=@Price WHERE ProductID=@ID";
-                SqlCommand cmd = new SqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@ID", id);
-                cmd.Parameters.AddWithValue("@Name", name);
-                cmd.Parameters.AddWithValue("@NameJP", nameJP);
-                cmd.Parameters.AddWithValue("@Qty", quantity);
-                cmd.Parameters.AddWithValue("@Price", price);
-
-                conn.Open();
-                cmd.ExecuteNonQuery();
-            }
-        }
-
-        public void DeleteProduct(int id)
-        {
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                string query = "DELETE FROM Products WHERE ProductID=@ID";
-                SqlCommand cmd = new SqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@ID", id);
-
-                conn.Open();
-                cmd.ExecuteNonQuery();
-            }
-        }
-
-        public User? GetUser(string username, string password)
-        {
-            string passwordHash = HashPassword(password);
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                string query = "SELECT UserId, Username, PasswordHash, IsAdmin FROM Users WHERE Username = @Username AND PasswordHash = @PasswordHash";
-                SqlCommand cmd = new SqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@Username", username);
-                cmd.Parameters.AddWithValue("@PasswordHash", passwordHash);
-
-                conn.Open();
-                using (SqlDataReader reader = cmd.ExecuteReader())
+                string sql = "INSERT INTO Products (ProductName, ProductNameJP, Quantity, Price) VALUES (@Name, @NameJP, @Qty, @Price)";
+                using (var cmd = new SQLiteCommand(sql, conn))
                 {
-                    if (reader.Read())
-                    {
-                        return new User(
-                            reader["Username"].ToString(),
-                            reader["PasswordHash"].ToString(),
-                            (bool)reader["IsAdmin"]
-                        )
-                        {
-                            UserId = (int)reader["UserId"]
-                        };
-                    }
+                    cmd.Parameters.AddWithValue("@Name", name);
+                    cmd.Parameters.AddWithValue("@NameJP", nameJP);
+                    cmd.Parameters.AddWithValue("@Qty", quantity);
+                    cmd.Parameters.AddWithValue("@Price", price);
+                    cmd.ExecuteNonQuery();
                 }
             }
-            return null;
         }
 
-        public void RegisterUser(User user)
+        public bool AuthenticateUser(string username, string password)
         {
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            using (var conn = new SQLiteConnection(connectionString))
             {
-                string query = "INSERT INTO Users (Username, PasswordHash, IsAdmin) VALUES (@Username, @PasswordHash, @IsAdmin)";
-                SqlCommand cmd = new SqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@Username", user.Username);
-                cmd.Parameters.AddWithValue("@PasswordHash", user.PasswordHash);
-                cmd.Parameters.AddWithValue("@IsAdmin", user.IsAdmin);
-
                 conn.Open();
-                cmd.ExecuteNonQuery();
-            }
-        }
-
-        private string HashPassword(string password)
-        {
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                byte[] hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-                return BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
+                string sql = "SELECT COUNT(*) FROM Users WHERE Username = @Username AND PasswordHash = @Password";
+                using (var cmd = new SQLiteCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Username", username);
+                    cmd.Parameters.AddWithValue("@Password", password);
+                    int count = Convert.ToInt32(cmd.ExecuteScalar());
+                    return count > 0;
+                }
             }
         }
     }
